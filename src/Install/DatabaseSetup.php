@@ -58,18 +58,24 @@ final class DatabaseSetup
     }
 
     /**
-     * Writes .env.local with the database URL and a fresh APP_SECRET. Never overwrites an existing file.
+     * Writes .env.local with the database URL, a fresh APP_SECRET and the updater token. Never
+     * overwrites an existing file.
      *
      * @return string|null the contents, when the file could not be written and must be created by hand
      */
     public function writeEnvLocal(string $dsn): ?string
     {
         // Single quotes: Dotenv takes the value literally. The URL-encoded DSN holds no quote.
-        $contents = sprintf("# Written by the installer.\nAPP_SECRET=%s\nDATABASE_URL='%s'\n", bin2hex(random_bytes(16)), $dsn);
+        $contents = sprintf(
+            "# Written by the installer.\nAPP_SECRET=%s\nDATABASE_URL='%s'\n# Asked for when an upgrade changes the database.\nUPDATE_TOKEN=%s\n",
+            bin2hex(random_bytes(16)), $dsn, bin2hex(random_bytes(16)),
+        );
         $path = $this->projectDir.'/.env.local';
         if (file_exists($path) || false === @file_put_contents($path, $contents, \LOCK_EX)) {
             return $contents;
         }
+        // Holds the database password: keep other accounts on the host out.
+        @chmod($path, 0o600);
 
         return null;
     }
@@ -79,6 +85,11 @@ final class DatabaseSetup
      */
     public function migrate(): void
     {
+        // Hosts stop web requests after max_execution_time; a migration cut halfway leaves the schema
+        // broken. Some hosts disable set_time_limit() itself.
+        if (\function_exists('set_time_limit')) {
+            set_time_limit(0);
+        }
         $application = new Application($this->kernel);
         $application->setAutoExit(false);
         $output = new BufferedOutput();

@@ -73,3 +73,7 @@ Paged/RTL reader, reading progress, follows, search, comments, likes, ratings, c
 - Apache in the dev image runs as `www-data` remapped to uid 1001 (`HOST_UID` build arg); `APACHE_RUN_USER=#uid` left the workers running as root.
 - Image-quality checks (scrambling, seams, compression): test gradients and colour in the real browser, not only text on white. Text-on-white hid tile seams that showed in the reader.
 - Dev DB pages ingested before a derivative-format change (scrambling, thumbs) render broken. Re-ingest demo content before judging the UI; generator and uploader in `~/Documents/tickets/goku-symfony/ui-polish/`.
+- Request subscribers that run before the `RouterListener` (priority 32) and generate URLs must call `getContext()->fromRequest()` first, or a site in a subfolder redirects to the domain root.
+- A site in a subfolder behind the root `.htaccess` gets `SCRIPT_NAME=/<dir>/public/index.php` for `/<dir>/...` URLs; `public/index.php` rewrites `SCRIPT_NAME` so Symfony finds the base path. Domain-root installs never show this; test subfolders.
+- Code that runs while migrations are pending (updater, login, Twig globals) must not load entities: their new mapping may not match the old schema. Hence the `UPDATE_TOKEN` updater and default site settings while pending.
+- `cache.system` uses APCu when the extension is loaded, and a CLI pool clear never reaches the web server's APCu. To make the web side re-check pending migrations, run `cache:clear` (new container build id).

@@ -25,6 +25,14 @@ final class InstallTest extends WebTestCase
         }
     }
 
+    public function testSiteInSubfolderRedirectsWithinIt(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/manga/', server: ['SCRIPT_NAME' => '/manga/index.php', 'SCRIPT_FILENAME' => '/srv/manga/index.php']);
+
+        self::assertResponseRedirects('/manga/install');
+    }
+
     public function testMismatchedPasswordsCreateNoUser(): void
     {
         $client = static::createClient();
@@ -56,28 +64,29 @@ final class InstallTest extends WebTestCase
         self::assertResponseRedirects('/login');
     }
 
-    public function testPendingMigrationSendsPagesToTheUpdaterUntilALoggedInUserRunsIt(): void
+    public function testPendingMigrationSendsEveryPageToTheUpdaterUntilTheTokenRunsIt(): void
     {
         $client = static::createClient();
         $client->disableReboot();
-        $user = UserFactory::createOne();
+        UserFactory::createOne();
         // An upgrade as the site sees it: a migration the database has not recorded.
         $connection = static::getContainer()->get(Connection::class);
         $version = (string) $connection->fetchOne('SELECT version FROM doctrine_migration_versions');
         $connection->executeStatement('DELETE FROM doctrine_migration_versions');
         static::getContainer()->get('cache.system')->clear();
 
-        $client->request('GET', '/');
-        self::assertResponseRedirects('/install');
-        $client->request('GET', '/login');
-        self::assertResponseIsSuccessful();
+        foreach (['/', '/login', '/admin'] as $path) {
+            $client->request('GET', $path);
+            self::assertResponseRedirects('/install', null, $path);
+        }
         $client->request('GET', '/install');
-        self::assertSelectorTextContains('main', 'Log in to finish the update');
+        self::assertSelectorTextContains('main', 'being updated');
 
-        // The baseline cannot run twice, so restore the record instead of submitting the form.
-        $client->loginUser($user);
-        $client->request('GET', '/install');
-        self::assertSelectorExists('button:contains("Update the database")');
+        $client->submitForm('Update the database', ['token' => 'wrong']);
+        self::assertSelectorTextContains('[role=alert]', 'Wrong update token');
+        self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM doctrine_migration_versions'));
+
+        // The baseline cannot run twice, so restore the record instead of submitting the right token.
         $connection->insert('doctrine_migration_versions', ['version' => $version, 'executed_at' => '2026-10-14 00:00:00', 'execution_time' => 1]);
 
         $client->request('GET', '/install');

@@ -10,18 +10,22 @@ use App\Install\Requirements;
 use App\Security\UserProvisioner;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 // One route walks through the steps InstallState reports as open: requirements, database,
 // schema, first user. Open to whoever arrives first; the route closes itself once a user exists.
-// Afterwards it only runs the migrations an uploaded release brings, for logged-in users.
+// Afterwards it only runs the migrations an uploaded release brings. That step asks for
+// UPDATE_TOKEN instead of a login: the new release's entities may not load from the old schema.
 final class InstallController extends AbstractController
 {
     public function __construct(
         private readonly InstallState $state,
         private readonly DatabaseSetup $setup,
+        #[Autowire('%env(UPDATE_TOKEN)%')]
+        private readonly string $updateToken,
     ) {
     }
 
@@ -90,20 +94,20 @@ final class InstallController extends AbstractController
     private function update(Request $request): Response
     {
         $error = null;
-        if (null !== $this->getUser() && $request->isMethod('POST')) {
+        if ('' !== $this->updateToken && $request->isMethod('POST')) {
             try {
-                if (!$this->isCsrfTokenValid('install_update', (string) $request->request->get('_token'))) {
-                    throw new \RuntimeException('Invalid CSRF token. Reload the page and try again.');
+                if (!hash_equals($this->updateToken, (string) $request->request->get('token'))) {
+                    throw new \RuntimeException('Wrong update token. Copy UPDATE_TOKEN from .env.local.');
                 }
                 $this->setup->migrate();
 
-                return $this->redirectToRoute('admin');
+                return $this->redirectToRoute('app_login');
             } catch (\RuntimeException $e) {
                 $error = $e->getMessage();
             }
         }
 
-        return $this->render('install/update.html.twig', ['error' => $error]);
+        return $this->render('install/update.html.twig', ['error' => $error, 'enabled' => '' !== $this->updateToken]);
     }
 
     private function user(Request $request, UserProvisioner $provisioner, Security $security): Response

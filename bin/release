@@ -13,7 +13,7 @@ mkdir "$app"
 
 # The working tree as git sees it (tracked and new files, nothing ignored), minus development files.
 git ls-files -z --cached --others --exclude-standard \
-    | grep -zEv '^(tests/|docker/|\.claude/|bin/release$|compose\.yaml$|Dockerfile$|Makefile$|versions\.env$|phpunit\.dist\.xml$|phpstan\.dist\.neon$|CLAUDE\.md$|LATER\.md$|\.editorconfig$|\.env\.(dev|test)$)' \
+    | grep -zEv '^(tests/|docker/|screenshots/|\.claude/|bin/release$|compose\.yaml$|Dockerfile$|Makefile$|versions\.env$|phpunit\.dist\.xml$|phpstan\.dist\.neon$|CLAUDE\.md$|LATER\.md$|\.editorconfig$|\.env\.(dev|test)$)' \
     | while IFS= read -r -d '' file; do
         [ -e "$file" ] && cp --parents -p "$file" "$app"
     done

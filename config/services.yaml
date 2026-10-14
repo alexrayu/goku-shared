@@ -12,6 +12,8 @@ parameters:
     env(SITE_DESCRIPTION): 'Manga and comics to read online.'
     # vips, imagick or gd; auto takes the best the host offers.
     env(IMAGE_PROCESSOR): 'auto'
+    # Authorizes the web updater; the installer writes one to .env.local. Empty disables the updater.
+    env(UPDATE_TOKEN): ''
 
 services:
     # default configuration for services in *this* file

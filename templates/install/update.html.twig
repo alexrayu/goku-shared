@@ -4,18 +4,19 @@
 
 {% block content %}
     <h1>Update the site</h1>
-    {% if app.user %}
-        <p>This release changes the database. Back up the database first if your host offers it.</p>
+    <p>The site is being updated and is back shortly.</p>
 
+    {% if enabled %}
         <form method="post">
+            <p>Site owner: this release changes the database. Back up the database first if your host offers it, then enter <code>UPDATE_TOKEN</code> from <code>.env.local</code>.</p>
             {% if error %}
                 <pre role="alert" class="env">{{ error }}</pre>
             {% endif %}
-            <input type="hidden" name="_token" value="{{ csrf_token('install_update') }}">
+            <label for="token">Update token</label>
+            <input type="password" id="token" name="token" required autocomplete="off">
             <button class="button primary" type="submit">Update the database</button>
         </form>
     {% else %}
-        <p>The site is being updated and is back shortly.</p>
-        <p><a href="{{ path('app_login') }}">Log in</a> to finish the update.</p>
+        <p>Site owner: add <code>UPDATE_TOKEN=</code> with a long random value to <code>.env.local</code>, then reload this page.</p>
     {% endif %}
 {% endblock %}

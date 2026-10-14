@@ -30,10 +30,10 @@ final class SiteSettingsProvider
     }
 
     // A detached copy for display. Admin edits go through find() instead. The installer pages render
-    // before there is a database to read.
+    // before there is a database to read, the updater before the table matches the entity.
     public function get(): SiteSettings
     {
-        return $this->settings ??= $this->state->isInstalled()
+        return $this->settings ??= $this->state->isInstalled() && !$this->state->hasPendingMigrations()
             ? $this->cache->get(self::KEY, fn (): SiteSettings => $this->find() ?? $this->defaults())
             : $this->defaults();
     }
