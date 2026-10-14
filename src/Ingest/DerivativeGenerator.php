@@ -8,6 +8,7 @@ use App\Entity\Chapter;
 use App\Entity\Page;
 use App\Enum\PageStatus;
 use App\Image\ImageProcessor;
+use App\Image\UnprocessableImage;
 use App\Ingest\Message\GenerateChapterCovers;
 use App\Ingest\Message\GenerateDerivative;
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,6 +16,7 @@ use League\Flysystem\FilesystemOperator;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
+use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 
 final class DerivativeGenerator
 {
@@ -58,6 +60,9 @@ final class DerivativeGenerator
             if ($page->getChapter()->getPages()->first() === $page) {
                 $this->storeCovers($page->getChapter(), $source);
             }
+        } catch (UnprocessableImage $e) {
+            // Same input, same outcome: fail the page now instead of after the retries.
+            throw new UnrecoverableMessageHandlingException($e->getMessage(), 0, $e);
         } finally {
             $this->remove($source, $target);
         }

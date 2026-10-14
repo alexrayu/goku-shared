@@ -11,8 +11,6 @@ use Symfony\Component\Process\Process;
 // libvips streams the image (shrink-on-load), so memory stays flat however tall the strip.
 final class VipsCliImageProcessor implements ImageProcessor
 {
-    // WebP cannot exceed this on either side; very tall strips are scaled to fit.
-    private const WEBP_MAX_SIDE = 16383;
     private const QUALITY = 80;
 
     public function __construct(private readonly Filesystem $filesystem = new Filesystem())

@@ -10,7 +10,7 @@ use App\Ingest\Message\GenerateDerivative;
 use App\Ingest\Message\IngestArchive;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -21,7 +21,8 @@ final class ArchiveIngestor
     private const ENTRY_MAX_BYTES = 64 * 1024 * 1024;
     // Whole-archive caps: the per-entry cap alone lets many entries fill the disk.
     private const MAX_PAGES = 1000;
-    private const TOTAL_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+    // Also caps the archive itself (ChunkedUpload).
+    public const TOTAL_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -35,14 +36,13 @@ final class ArchiveIngestor
     /**
      * Web side: store the upload, queue extraction. Nothing heavy runs in the request.
      *
+     * @param string $name the file name the client sent
+     *
      * @throws \InvalidArgumentException with a message safe to show the user
      */
-    public function accept(Chapter $chapter, UploadedFile $file): void
+    public function accept(Chapter $chapter, File $file, string $name): void
     {
-        if (!$file->isValid()) {
-            throw new \InvalidArgumentException($file->getErrorMessage());
-        }
-        if (!\in_array(strtolower($file->getClientOriginalExtension()), ['zip', 'cbz'], true)
+        if (!\in_array(strtolower(pathinfo($name, \PATHINFO_EXTENSION)), ['zip', 'cbz'], true)
             || 'application/zip' !== $file->getMimeType()) {
             throw new \InvalidArgumentException('Upload a .zip or .cbz archive.');
         }

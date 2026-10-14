@@ -7,13 +7,14 @@ namespace App\Ingest;
 use App\Entity\SiteSettings;
 use App\Entity\Work;
 use App\Image\ImageProcessor;
+use App\Image\UnprocessableImage;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 // Images the artist uploads in admin outside chapters: a work's chosen cover and the site logo.
-// One image each, processed in the request (two vips calls at most), not by the worker.
+// One image each, processed in the request (two conversions at most), not by the worker.
 final class CustomImages
 {
     // Header height 1.75rem at 2x, wide enough for a wordmark.
@@ -102,6 +103,8 @@ final class CustomImages
             }
         } catch (ProcessFailedException $e) {
             throw new \InvalidArgumentException('This image could not be read. Upload a PNG, JPEG or WebP file.', 0, $e);
+        } catch (UnprocessableImage $e) {
+            throw new \InvalidArgumentException($e->getMessage(), 0, $e);
         } finally {
             foreach ($files as $file) {
                 if (is_file($file)) {

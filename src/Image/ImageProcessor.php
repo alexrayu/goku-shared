@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Image;
 
-// Seam for the shared-hosting port (Imagick, GD): swap the implementation via a DI alias.
+// Implementations: libvips CLI, Imagick, GD; ImageProcessorFactory picks what the host offers.
 interface ImageProcessor
 {
+    // WebP cannot exceed this on either side; very tall strips are scaled to fit.
+    public const WEBP_MAX_SIDE = 16383;
+
     /**
      * Shrinks $source to at most $maxWidth wide (never upscaled), cuts it into $tileSize squares
      * and writes them to $target as one WebP with the tiles in shuffled slots, row-major,

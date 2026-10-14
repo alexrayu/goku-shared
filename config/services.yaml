@@ -10,6 +10,8 @@ parameters:
     # First-run site name and tagline, until the artist saves Site settings in admin.
     env(SITE_NAME): 'Goku'
     env(SITE_DESCRIPTION): 'Manga and comics to read online.'
+    # vips, imagick or gd; auto takes the best the host offers.
+    env(IMAGE_PROCESSOR): 'auto'
 
 services:
     # default configuration for services in *this* file
@@ -24,3 +26,5 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+    App\Image\ImageProcessor:
+        factory: ['@App\Image\ImageProcessorFactory', 'create']

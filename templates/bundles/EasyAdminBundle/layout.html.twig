@@ -1,0 +1,12 @@
+{% extends '@!EasyAdmin/layout.html.twig' %}
+
+{% block flash_messages %}
+    {{ parent() }}
+    {% set stalled_since = queue_stalled_since() %}
+    {% if stalled_since %}
+        <twig:ea:Alert variant="warning">
+            Uploads are not being processed: jobs have been waiting since {{ stalled_since|date('Y-m-d H:i', 'UTC') }} UTC.
+            The cron job that runs <code>bin/console messenger:consume</code> is missing or failing; see the README.
+        </twig:ea:Alert>
+    {% endif %}
+{% endblock %}

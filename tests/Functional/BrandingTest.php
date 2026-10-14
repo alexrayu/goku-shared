@@ -15,7 +15,6 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Field\FileFormField;
 use Symfony\Component\DomCrawler\Form;
-use Symfony\Component\Process\Process;
 use Zenstruck\Foundry\Test\Factories;
 use Zenstruck\Foundry\Test\ResetDatabase;
 
@@ -148,11 +147,18 @@ final class BrandingTest extends WebTestCase
         $input->upload($path);
     }
 
-    // A real PNG with transparency, made by vips like the rest of the image tests.
+    /**
+     * A real PNG with transparency.
+     *
+     * @param int<1, max> $width
+     * @param int<1, max> $height
+     */
     private function image(int $width, int $height): string
     {
         $path = sprintf('%s/brand_%s.png', sys_get_temp_dir(), bin2hex(random_bytes(4)));
-        (new Process(['vips', 'black', $path, (string) $width, (string) $height, '--bands', '4']))->mustRun();
+        $image = imagecreatetruecolor($width, $height) ?: self::fail();
+        imagesavealpha($image, true);
+        imagepng($image, $path);
 
         return $path;
     }

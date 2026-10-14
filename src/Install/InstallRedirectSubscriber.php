@@ -10,7 +10,8 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
-// Until the first user exists, every page leads to the installer.
+// Until the first user exists, every page leads to the installer; after an upgrade with pending
+// migrations, every page but the login leads to the updater.
 final class InstallRedirectSubscriber implements EventSubscriberInterface
 {
     public function __construct(
@@ -37,7 +38,7 @@ final class InstallRedirectSubscriber implements EventSubscriberInterface
             return;
         }
 
-        if (!$this->state->isInstalled()) {
+        if (!$this->state->isInstalled() || ('/login' !== $path && $this->state->hasPendingMigrations())) {
             $event->setResponse(new RedirectResponse($this->urlGenerator->generate('app_install')));
         }
     }

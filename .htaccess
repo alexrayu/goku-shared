@@ -1,0 +1,11 @@
+# Fallback for hosts whose document root cannot point at public/: every request is served from
+# public/, so nothing else in the project (.env.local, var/, vendor/) is reachable.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Without mod_rewrite the project root would be browsable: refuse everything.
+<IfModule !mod_rewrite.c>
+    Require all denied
+</IfModule>

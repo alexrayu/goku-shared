@@ -1,7 +1,8 @@
 COMPOSE = docker compose --env-file versions.env
-RUN     = $(COMPOSE) run --rm php
+# Host uid, so files the container writes stay editable on the host.
+RUN     = $(COMPOSE) run --rm --user "$$(id -u):$$(id -g)" -e COMPOSER_HOME=/tmp/composer php
 
-.PHONY: up down install stan schema test provision deploy
+.PHONY: up down install stan schema test worker release
 
 up:
 	$(COMPOSE) up -d --build
@@ -21,9 +22,9 @@ schema:
 test:
 	$(RUN) vendor/bin/phpunit
 
-# Prod. Needs ansible/secrets.yml and the inventory host. Deploy a branch: make deploy REF=<branch>
-provision:
-	cd ansible && ansible-playbook provision.yml
+release:
+	$(RUN) bin/release
 
-deploy:
-	cd ansible && ansible-playbook deploy.yml $(if $(REF),-e app_ref=$(REF))
+# What the host's cron runs every minute.
+worker:
+	$(RUN) bin/console messenger:consume async --time-limit=55 --memory-limit=128M

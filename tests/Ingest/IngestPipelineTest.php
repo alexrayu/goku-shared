@@ -20,7 +20,6 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
-use Symfony\Component\Process\Process;
 use Zenstruck\Foundry\Test\Factories;
 use Zenstruck\Foundry\Test\ResetDatabase;
 
@@ -147,7 +146,7 @@ final class IngestPipelineTest extends KernelTestCase
         $chapter = ChapterFactory::createOne();
         $original = StorageKeys::original($chapter, 'png');
         $file = $this->workDir.'/first.png';
-        (new Process(['vips', 'black', $file, '800', '1200']))->mustRun();
+        imagepng(imagecreatetruecolor(800, 1200) ?: self::fail(), $file);
         $storage = static::getContainer()->get('default.storage');
         $storage->write($original, (string) file_get_contents($file));
         PageFactory::createOne(['chapter' => $chapter, 'position' => 10, 'originalKey' => $original]);
@@ -159,7 +158,7 @@ final class IngestPipelineTest extends KernelTestCase
     }
 
     /**
-     * @param array<string, array{int, int}|null> $entries name => image size, or null for a junk text entry
+     * @param array<string, array{int<1, max>, int<1, max>}|null> $entries name => image size, or null for a junk text entry
      */
     private function storeArchive(Chapter $chapter, array $entries): string
     {
@@ -172,7 +171,12 @@ final class IngestPipelineTest extends KernelTestCase
                 continue;
             }
             $file = $this->workDir.'/'.basename($name);
-            (new Process(['vips', 'black', $file, (string) $size[0], (string) $size[1]]))->mustRun();
+            $image = imagecreatetruecolor($size[0], $size[1]) ?: self::fail();
+            match (strtolower(pathinfo($file, \PATHINFO_EXTENSION))) {
+                'jpg', 'jpeg' => imagejpeg($image, $file),
+                'webp' => imagewebp($image, $file),
+                default => imagepng($image, $file),
+            };
             $zip->addFile($file, $name);
         }
         $zip->close();

@@ -4,7 +4,7 @@ framework:
 
         transports:
             async: '%env(MESSENGER_TRANSPORT_DSN)%'
-            failed: '%env(MESSENGER_TRANSPORT_DSN)%?stream=failed'
+            failed: '%env(MESSENGER_TRANSPORT_DSN)%&queue_name=failed'
 
         routing:
             App\Ingest\Message\IngestArchive: async

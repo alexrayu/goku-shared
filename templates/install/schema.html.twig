@@ -1,0 +1,16 @@
+{% extends 'auth_layout.html.twig' %}
+
+{% block title %}Install{% endblock %}
+
+{% block content %}
+    <h1>Set up the site</h1>
+    <p>Step 2 of 3: the database is connected. Create the tables.</p>
+
+    <form method="post">
+        {% if error %}
+            <pre role="alert" class="env">{{ error }}</pre>
+        {% endif %}
+
+        <button class="button primary" type="submit">Create tables</button>
+    </form>
+{% endblock %}

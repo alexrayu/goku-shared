@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Builds dist/goku-<version>.zip for shared hosting: production vendor/, compiled assets, no dev
+# files. Run in the dev container (make release); it needs network for Composer and the importmap.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+root=$PWD
+
+version=$(git describe --tags --always --dirty 2>/dev/null || date +%Y%m%d)
+build=$(mktemp -d)
+app="$build/goku"
+trap 'rm -rf "$build"' EXIT
+mkdir "$app"
+
+# The working tree as git sees it (tracked and new files, nothing ignored), minus development files.
+git ls-files -z --cached --others --exclude-standard \
+    | grep -zEv '^(tests/|docker/|\.claude/|bin/release$|compose\.yaml$|Dockerfile$|Makefile$|versions\.env$|phpunit\.dist\.xml$|phpstan\.dist\.neon$|CLAUDE\.md$|LATER\.md$|\.editorconfig$|\.env\.(dev|test)$)' \
+    | while IFS= read -r -d '' file; do
+        [ -e "$file" ] && cp --parents -p "$file" "$app"
+    done
+
+cd "$app"
+sed -i 's/^APP_ENV=.*/APP_ENV=prod/' .env
+# Release id for the cache dir (Kernel::getCacheDir()); the timestamp tells apart rebuilds of one commit.
+printf "<?php\n\nreturn '%s';\n" "$version-$(date -u +%Y%m%d%H%M%S)" > config/release.php
+APP_ENV=prod composer install --no-dev --classmap-authoritative --no-interaction --no-progress --quiet
+APP_ENV=prod php bin/console asset-map:compile --quiet
+# The cache holds absolute paths of this build: the host compiles its own on the first request.
+rm -rf var
+mkdir -p var
+
+cd "$build"
+mkdir -p "$root/dist"
+out="$root/dist/goku-$version.zip"
+rm -f "$out"
+zip -qr "$out" goku
+echo "$out"

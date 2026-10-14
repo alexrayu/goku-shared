@@ -1,0 +1,31 @@
+{% extends 'auth_layout.html.twig' %}
+
+{% block title %}Install{% endblock %}
+
+{% block content %}
+    <h1>Set up the site</h1>
+    <p>Step 1 of 3: the MySQL or MariaDB database from your hosting control panel.</p>
+
+    <form method="post">
+        {% if error %}
+            <p role="alert">{{ error }}</p>
+        {% endif %}
+
+        <label for="host">Host</label>
+        <input type="text" id="host" name="host" value="{{ form.host }}" required autofocus>
+
+        <label for="port">Port</label>
+        <input type="number" id="port" name="port" value="{{ form.port }}" min="1" max="65535" required>
+
+        <label for="name">Database name</label>
+        <input type="text" id="name" name="name" value="{{ form.name }}" required>
+
+        <label for="user">User</label>
+        <input type="text" id="user" name="user" value="{{ form.user }}" autocomplete="off" required>
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="off">
+
+        <button class="button primary" type="submit">Connect</button>
+    </form>
+{% endblock %}

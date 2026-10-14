@@ -1,0 +1,21 @@
+{% extends 'auth_layout.html.twig' %}
+
+{% block title %}Update{% endblock %}
+
+{% block content %}
+    <h1>Update the site</h1>
+    {% if app.user %}
+        <p>This release changes the database. Back up the database first if your host offers it.</p>
+
+        <form method="post">
+            {% if error %}
+                <pre role="alert" class="env">{{ error }}</pre>
+            {% endif %}
+            <input type="hidden" name="_token" value="{{ csrf_token('install_update') }}">
+            <button class="button primary" type="submit">Update the database</button>
+        </form>
+    {% else %}
+        <p>The site is being updated and is back shortly.</p>
+        <p><a href="{{ path('app_login') }}">Log in</a> to finish the update.</p>
+    {% endif %}
+{% endblock %}

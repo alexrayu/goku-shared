@@ -1,0 +1,10 @@
+{% extends 'auth_layout.html.twig' %}
+
+{% block title %}Install{% endblock %}
+
+{% block content %}
+    <h1>Set up the site</h1>
+    <p>The connection works, but PHP cannot write <code>.env.local</code> in the site folder. Create it there with this content, then reload this page.</p>
+
+    <pre class="env">{{ contents }}</pre>
+{% endblock %}

@@ -3,13 +3,19 @@
 {% block content_title %}Upload pages: {{ chapter }}{% endblock %}
 
 {% block main %}
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" data-controller="chapter-upload"
+        data-chapter-upload-url-value="{{ ea_url().setAction('uploadChunk').setEntityId(chapter.id) }}"
+        data-chapter-upload-token-value="{{ csrf_token('chapter_upload') }}"
+        data-chapter-upload-chunk-value="{{ chunk_size }}"
+        data-action="chapter-upload#upload">
         <input type="hidden" name="_token" value="{{ csrf_token('chapter_upload') }}">
+        <div class="alert alert-danger" role="alert" data-chapter-upload-target="error" hidden></div>
         <div class="mb-3">
             <label class="form-label" for="archive">ZIP or CBZ archive</label>
-            <input class="form-control" type="file" id="archive" name="archive" accept=".zip,.cbz" required>
+            <input class="form-control" type="file" id="archive" name="archive" accept=".zip,.cbz" required data-chapter-upload-target="file">
             <div class="form-text">Images are ordered by file name, naturally (page_2 before page_10).</div>
         </div>
-        <button class="btn btn-primary" type="submit">Upload</button>
+        <progress class="w-100 mb-3" value="0" max="1" data-chapter-upload-target="progress" hidden></progress>
+        <button class="btn btn-primary" type="submit" data-chapter-upload-target="submit">Upload</button>
     </form>
 {% endblock %}

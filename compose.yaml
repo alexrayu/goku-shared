@@ -4,38 +4,33 @@ services:
       context: .
       args:
         PHP_VERSION: ${PHP_VERSION}
-    command: php -S 0.0.0.0:8000 -t public
     ports:
-      - "8000:8000"
+      - "8010:80"
     volumes:
       - .:/app
     environment:
-      DATABASE_URL: postgresql://app:app@database:5432/app?serverVersion=${POSTGRES_VERSION}&charset=utf8
-      MESSENGER_TRANSPORT_DSN: redis://redis:6379/messages
+      # public/ as the docroot; set /app to test the root .htaccess fallback.
+      APACHE_DOCUMENT_ROOT: /app/public
+      # No DATABASE_URL: the web installer writes it to .env.local, as on a shared host.
     depends_on:
       database:
         condition: service_healthy
-      redis:
-        condition: service_started
 
   database:
-    image: postgres:${POSTGRES_VERSION}-alpine
+    image: mariadb:${MARIADB_VERSION}
     environment:
-      POSTGRES_DB: app
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
+      MARIADB_DATABASE: app
+      MARIADB_USER: app
+      MARIADB_PASSWORD: app
+      MARIADB_ROOT_PASSWORD: root
     healthcheck:
-      test: ["CMD", "pg_isready", "-d", "app", "-U", "app"]
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
       timeout: 5s
       retries: 10
-    ports:
-      - "5432"
     volumes:
-      - database_data:/var/lib/postgresql/data
-
-  redis:
-    image: redis:${REDIS_VERSION}-alpine
+      - database_data:/var/lib/mysql
+      - ./docker/db-init.sql:/docker-entrypoint-initdb.d/db-init.sql:ro
 
 volumes:
   database_data:

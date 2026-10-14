@@ -9,6 +9,7 @@ use App\Entity\Work;
 use App\Enum\WorkType;
 use App\Ingest\ArchiveIngestor;
 use App\Ingest\ChapterPages;
+use App\Ingest\ChunkedUpload;
 use Doctrine\ORM\EntityManagerInterface;
 use EasyCorp\Bundle\EasyAdminBundle\Attribute\AdminRoute;
 use EasyCorp\Bundle\EasyAdminBundle\Config\Action;
@@ -29,6 +30,7 @@ use EasyCorp\Bundle\EasyAdminBundle\Field\TextareaField;
 use EasyCorp\Bundle\EasyAdminBundle\Router\AdminUrlGenerator;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -226,8 +228,11 @@ final class ChapterCrudController extends AbstractCrudController
                 if (!$file instanceof UploadedFile) {
                     throw new \InvalidArgumentException('Choose an archive to upload.');
                 }
+                if (!$file->isValid()) {
+                    throw new \InvalidArgumentException($file->getErrorMessage());
+                }
 
-                $ingestor->accept($chapter, $file);
+                $ingestor->accept($chapter, $file, $file->getClientOriginalName());
                 $this->addFlash('success', 'Archive queued. Page status updates as the worker processes it.');
 
                 return $this->redirect($urlGenerator->setController(self::class)->setAction(Action::DETAIL)
@@ -237,6 +242,42 @@ final class ChapterCrudController extends AbstractCrudController
             }
         }
 
-        return $this->render('admin/chapter/upload.html.twig', ['chapter' => $chapter]);
+        return $this->render('admin/chapter/upload.html.twig', ['chapter' => $chapter, 'chunk_size' => ChunkedUpload::chunkSize()]);
+    }
+
+    // One slice of a chunked upload (chapter_upload_controller.js); the last one queues the archive.
+    #[AdminRoute('/{id}/upload-chunk', 'upload_chunk', options: ['methods' => ['POST']])]
+    public function uploadChunk(
+        #[MapEntity] Chapter $chapter,
+        Request $request,
+        ChunkedUpload $chunks,
+        ArchiveIngestor $ingestor,
+        AdminUrlGenerator $urlGenerator,
+    ): JsonResponse {
+        try {
+            if (!$this->isCsrfTokenValid('chapter_upload', (string) $request->request->get('_token'))) {
+                throw new \InvalidArgumentException('Invalid CSRF token. Reload the page and try again.');
+            }
+            $chunk = $request->files->get('chunk');
+            if (!$chunk instanceof UploadedFile || !$chunk->isValid()) {
+                throw new \InvalidArgumentException('A part of the upload did not arrive. Start it again.');
+            }
+
+            $archive = $chunks->append(sprintf('chapter-%d', $chapter->getId()), $chunk, $request->request->getInt('offset'), $request->request->getInt('size'));
+            if (null === $archive) {
+                return $this->json(['done' => false]);
+            }
+            try {
+                $ingestor->accept($chapter, $archive, (string) $request->request->get('name'));
+            } finally {
+                unlink($archive->getPathname());
+            }
+            $this->addFlash('success', 'Archive queued. Page status updates as the worker processes it.');
+
+            return $this->json(['redirect' => $urlGenerator->setController(self::class)->setAction(Action::DETAIL)
+                ->setEntityId($chapter->getId())->generateUrl()]);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
     }
 }

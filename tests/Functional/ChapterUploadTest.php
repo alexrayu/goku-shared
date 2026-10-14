@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Field\FileFormField;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Zenstruck\Foundry\Test\Factories;
 use Zenstruck\Foundry\Test\ResetDatabase;
@@ -73,6 +74,63 @@ final class ChapterUploadTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.alert-danger', 'already has pages');
+    }
+
+    public function testSlicesAreReassembledAndQueuedAfterTheLast(): void
+    {
+        $chapter = ChapterFactory::createOne();
+        $zip = (string) file_get_contents($this->zipFile());
+        $half = intdiv(\strlen($zip), 2);
+
+        self::assertSame(['done' => false], $this->sendChunk((int) $chapter->getId(), substr($zip, 0, $half), 0, \strlen($zip)));
+        $result = $this->sendChunk((int) $chapter->getId(), substr($zip, $half), $half, \strlen($zip));
+
+        self::assertArrayHasKey('redirect', $result);
+        $sent = static::getContainer()->get('messenger.transport.async');
+        self::assertInstanceOf(InMemoryTransport::class, $sent);
+        $message = $sent->getSent()[0]->getMessage();
+        self::assertInstanceOf(IngestArchive::class, $message);
+        self::assertSame($zip, static::getContainer()->get('default.storage')->read($message->archiveKey));
+    }
+
+    public function testNewUploadRemovesAbandonedStagedFiles(): void
+    {
+        $chapter = ChapterFactory::createOne();
+        $staging = static::getContainer()->getParameter('kernel.project_dir').'/var/storage-test/staging';
+        @mkdir($staging, 0o750, true);
+        touch($staging.'/chapter-0.part', time() - 2 * 86400);
+
+        $this->sendChunk((int) $chapter->getId(), 'xx', 0, 100);
+
+        self::assertFileDoesNotExist($staging.'/chapter-0.part');
+        self::assertFileExists(sprintf('%s/chapter-%d.part', $staging, $chapter->getId()));
+    }
+
+    public function testSliceOutOfSequenceIsRefused(): void
+    {
+        $chapter = ChapterFactory::createOne();
+
+        $result = $this->sendChunk((int) $chapter->getId(), 'xx', 10, 100);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(['error' => 'The upload was interrupted. Start it again.'], $result);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sendChunk(int $chapterId, string $bytes, int $offset, int $size): array
+    {
+        $crawler = $this->client->request('GET', sprintf('/admin/chapter/%d/upload', $chapterId));
+        $form = $crawler->filter('[data-controller=chapter-upload]');
+        $path = (string) tempnam(sys_get_temp_dir(), 'chunk');
+        file_put_contents($path, $bytes);
+
+        $this->client->request('POST', (string) $form->attr('data-chapter-upload-url-value'), [
+            '_token' => $form->attr('data-chapter-upload-token-value'), 'name' => 'chapter.cbz', 'offset' => $offset, 'size' => $size,
+        ], ['chunk' => new UploadedFile($path, 'chunk', null, null, true)]);
+
+        return json_decode((string) $this->client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
     }
 
     private function submit(int $chapterId, string $file): Crawler

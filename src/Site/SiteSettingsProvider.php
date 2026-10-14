@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Site;
 
 use App\Entity\SiteSettings;
+use App\Install\InstallState;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -20,6 +21,7 @@ final class SiteSettingsProvider
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly CacheInterface $cache,
+        private readonly InstallState $state,
         #[Autowire('%env(SITE_NAME)%')]
         private readonly string $defaultName,
         #[Autowire('%env(SITE_DESCRIPTION)%')]
@@ -27,10 +29,13 @@ final class SiteSettingsProvider
     ) {
     }
 
-    // A detached copy for display. Admin edits go through find() instead.
+    // A detached copy for display. Admin edits go through find() instead. The installer pages render
+    // before there is a database to read.
     public function get(): SiteSettings
     {
-        return $this->settings ??= $this->cache->get(self::KEY, fn (): SiteSettings => $this->find() ?? $this->defaults());
+        return $this->settings ??= $this->state->isInstalled()
+            ? $this->cache->get(self::KEY, fn (): SiteSettings => $this->find() ?? $this->defaults())
+            : $this->defaults();
     }
 
     public function find(): ?SiteSettings

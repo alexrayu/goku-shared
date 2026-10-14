@@ -106,7 +106,7 @@ final class ChapterPages
     }
 
     /**
-     * Postgres checks the unique (chapter, position) row by row, so rewriting in place could hit a row
+     * The database checks the unique (chapter, position) row by row, so rewriting in place could hit a row
      * not yet updated; every page is parked on a negative position first.
      *
      * @param list<Page> $pages in their new order

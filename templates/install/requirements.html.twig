@@ -1,0 +1,14 @@
+{% extends 'auth_layout.html.twig' %}
+
+{% block title %}Install{% endblock %}
+
+{% block content %}
+    <h1>Set up the site</h1>
+    <p>This host is missing something the site needs. Fix it, then reload this page.</p>
+
+    <ul class="problems">
+        {% for requirement, fix in problems %}
+            <li><strong>{{ requirement }}</strong>: {{ fix }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

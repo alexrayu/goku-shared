@@ -1,5 +1,0 @@
-all:
-  hosts:
-    droplet:
-      ansible_host: TODO   # droplet IP
-      ansible_user: root
